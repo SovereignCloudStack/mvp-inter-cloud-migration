@@ -1,0 +1,40 @@
+---
+- name: Generate SSH keypairs
+  hosts: all
+  remote_user: ubuntu
+  any_errors_fatal: true
+  tasks:
+    - name: Generate keys
+      community.crypto.openssh_keypair:
+        path: "/home/{{ ansible_ssh_user }}/.ssh/id_ed25519"
+        type: "ed25519"
+
+    - name: Register pubkeys
+      ansible.builtin.command:
+        cmd: "cat /home/{{ ansible_ssh_user }}/.ssh/id_ed25519.pub"
+      register: pubkey
+      changed_when: false
+    
+    - name: Add other systems pubkey to authorized_keys
+      ansible.posix.authorized_key:
+        user: "{{ ansible_ssh_user }}"
+        key: "{{ hostvars[item]['pubkey']['stdout'] }}"
+      loop: "{{ groups['all'] }}"
+      when: inventory_hostname != item
+
+    - name: Scan the opposite hostkeys via wireguard ip
+      ansible.builtin.command:
+        cmd: "ssh-keyscan -t ed25519 {{ hostvars[item]['wireguard_ip'] }} 2>/dev/null"
+      register: keyscan
+      changed_when: false
+      loop: "{{ groups['all'] }}"
+      when: inventory_hostname != item
+
+    - name: Update known_hosts to prevent ssh hostkey fingerprint prompts
+      ansible.builtin.known_hosts:
+        name: "{{ item['stdout'].split(' ')[0] }}"
+        key: "{{ item['stdout'] }}"
+      loop: "{{ keyscan['results'] }}"
+      loop_control:
+        index_var: index
+      when: "'skipped' not in item"
