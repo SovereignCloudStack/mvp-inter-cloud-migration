@@ -1,0 +1,16 @@
+[source_vm]
+${source_public_ip} wireguard_ip=10.100.100.0
+
+[destination_vm]
+${destination_public_ip} wireguard_ip=10.100.100.1
+
+[all:vars]
+source_cloud=${source_cloud}
+source_helper_vm=${source_helper_vm}
+destination_cloud=${destination_cloud}
+destination_helper_vm=${destination_helper_vm}
+instance_name=${instance_name}
+volume_size=${volume_size}
+destination_flavor=${destination_flavor}
+destination_network=${destination_network}
+destination_security_groups='${destination_security_groups}'

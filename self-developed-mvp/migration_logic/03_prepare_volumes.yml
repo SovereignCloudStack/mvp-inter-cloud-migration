@@ -1,0 +1,42 @@
+---
+- name: Prepare volumes
+  hosts: localhost
+  any_errors_fatal: true
+  tasks:
+    - name: Stop source VM
+      openstack.cloud.server_action:
+        server: "{{ instance_name }}"
+        action: "stop"
+        cloud: "{{ source_cloud }}"
+
+    - name: Create image from source VM
+      ansible.builtin.command:
+        cmd: "openstack server image create {{ instance_name }} --name {{ instance_name }} --wait"
+      environment:
+        OS_CLOUD: "{{ source_cloud }}"
+      
+    - name: Create volume from the just created image
+      openstack.cloud.volume:
+        name: "{{ instance_name }}"
+        size: "{{ volume_size }}"
+        image: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+        timeout: "{{ volume_size * 60 }}"
+
+    - name: Mount this volume to the source helper VM
+      openstack.cloud.server_volume:
+        server: "{{ source_helper_vm }}"
+        volume: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+
+    - name: Create an equally sized volume in the destination cloud
+      ansible.builtin.command:
+        cmd: "openstack volume create --size {{ volume_size }} --bootable {{ instance_name }}"
+      environment:
+        OS_CLOUD: "{{ destination_cloud }}"
+
+    - name: Mount this volume to the destination helper VM
+      openstack.cloud.server_volume:
+        server: "{{ destination_helper_vm }}"
+        volume: "{{ instance_name }}"
+        cloud: "{{ destination_cloud }}"

@@ -1,0 +1,56 @@
+---
+- name: Cleanup volumes
+  hosts: localhost
+  any_errors_fatal: true
+  tasks:
+    - name: Unmount source volume
+      openstack.cloud.server_volume:
+        server: "{{ source_helper_vm }}"
+        volume: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+        state: "absent"
+      ignore_errors: true
+  
+    - name: Delete source volume
+      openstack.cloud.volume:
+        name: "{{ instance_name }}"
+        image: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+        state: "absent"
+
+    - name: Delete source image
+      openstack.cloud.image:
+        name: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+        state: "absent"
+
+    - name: Unmount destination volume
+      openstack.cloud.server_volume:
+        server: "{{ destination_helper_vm }}"
+        volume: "{{ instance_name }}"
+        cloud: "{{ destination_cloud }}"
+        state: "absent"
+      ignore_errors: true
+
+    - name: Make volume bootable in the destination cloud
+      openstack.cloud.volume:
+        name: "{{ instance_name }}"
+        size: "{{ volume_size }}"
+        is_bootable: "true"
+        cloud: "{{ destination_cloud }}"
+
+    # also automatically assigns floating-ips
+    - name: Create new destination VM and let it boot from the volume
+      openstack.cloud.server:
+        name: "{{ instance_name }}"
+        boot_volume: "{{ instance_name }}"
+        flavor: "{{ destination_flavor }}"
+        cloud: "{{ destination_cloud }}"
+        network: "{{ destination_network }}"
+        security_groups: "{{ destination_security_groups }}"
+
+    - name: Delete source VM
+      openstack.cloud.server:
+        name: "{{ instance_name }}"
+        cloud: "{{ source_cloud }}"
+        state: "absent"
